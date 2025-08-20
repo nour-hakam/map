@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Location Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .main-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .tab.active {
+            color: #4285f4;
+            border-bottom-color: #4285f4;
+        }
+
+        .tab:hover {
+            color: #4285f4;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="tel"],
+        input[type="color"],
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #4285f4;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #4285f4;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #357ae8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(66, 133, 244, 0.3);
+        }
+
+        .btn-danger {
+            background: #ea4335;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d33b2c;
+        }
+
+        .btn-success {
+            background: #34a853;
+            color: white;
+        }
+
+        .markers-list {
+            margin-top: 30px;
+        }
+
+        .marker-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .marker-item:hover {
+            background: #e8eaed;
+            transform: translateX(5px);
+        }
+
+        .marker-info {
+            flex: 1;
+        }
+
+        .marker-info h4 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .marker-info p {
+            color: #666;
+            font-size: 14px;
+            margin: 2px 0;
+        }
+
+        .marker-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            margin-right: 15px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .map-link-input {
+            position: relative;
+        }
+
+        .map-link-help {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateX(-5px);
+        }
+
+        .coordinates-display {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-family: monospace;
+        }
+
+        .no-markers {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Back to Map</a>
+        
+        <div class="header">
+            <h1>Admin Panel</h1>
+            <p>Manage Location Markers</p>
+        </div>
+
+        <div class="main-panel">
+            <div class="alert alert-success" id="successAlert"></div>
+            <div class="alert alert-error" id="errorAlert"></div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('add')">Add New Marker</button>
+                <button class="tab" onclick="switchTab('list')">View All Markers</button>
+            </div>
+
+            <!-- Add Marker Tab -->
+            <div class="tab-content active" id="addTab">
+                <form id="addMarkerForm">
+                    <div class="form-group">
+                        <label for="mapLink">Google Maps Link or Coordinates</label>
+                        <input type="text" id="mapLink" placeholder="Paste Google Maps link or enter coordinates (lat, lng)" required>
+                        <div class="map-link-help">
+                            Examples: 
+                            • Google Maps link: https://maps.google.com/?q=33.8938,35.5018
+                            • Coordinates: 33.8938, 35.5018
+                        </div>
+                        <div class="coordinates-display" id="coordDisplay" style="display: none;">
+                            Detected: Lat: <span id="latDisplay"></span>, Lng: <span id="lngDisplay"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="motherName">Mother's Name (Required)</label>
+                            <input type="text" id="motherName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="firstName">First Name (for marker label)</label>
+                            <input type="text" id="firstName" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="motherPhone">Mother's Phone</label>
+                            <input type="tel" id="motherPhone" placeholder="+961 XX XXX XXX">
+                        </div>
+                        <div class="form-group">
+                            <label for="fatherPhone">Father's Phone</label>
+                            <input type="tel" id="fatherPhone" placeholder="+961 XX XXX XXX">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="personPhone">Person's Phone</label>
+                            <input type="tel" id="personPhone" placeholder="+961 XX XXX XXX">
+                        </div>
+                        <div class="form-group">
+                            <label for="markerColor">Marker Color</label>
+                            <input type="color" id="markerColor" value="#FF0000">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Marker</button>
+                </form>
+            </div>
+
+            <!-- List Markers Tab -->
+            <div class="tab-content" id="listTab">
+                <div class="markers-list" id="markersList">
+                    <div class="no-markers">Loading markers...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // IMPORTANT: Replace with your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAsltkrj6N-L1IEaJEbdHDWYEC_F6HJSrE",
+            authDomain: "map-b012a.firebaseapp.com",
+            projectId: "map-b012a",
+            storageBucket: "map-b012a.firebasestorage.app",
+            messagingSenderId: "955802242108",
+            appId: "1:955802242108:web:44ee5523ee737094440739",
+            measurementId: "G-XN0RBYP3Q7"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            if (tabName === 'list') {
+                loadMarkers();
+            }
+        }
+
+        // Parse Google Maps link or coordinates
+        function parseLocation(input) {
+            const trimmed = input.trim();
+            
+            // Try to parse as coordinates (lat, lng)
+            const coordPattern = /^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/;
+            const coordMatch = trimmed.match(coordPattern);
+            if (coordMatch) {
+                return {
+                    lat: parseFloat(coordMatch[1]),
+                    lng: parseFloat(coordMatch[2])
+                };
+            }
+            
+            // Try to parse Google Maps URLs
+            // Format 1: https://maps.google.com/?q=lat,lng
+            let match = trimmed.match(/[?&]q=(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/);
+            if (match) {
+                return {
+                    lat: parseFloat(match[1]),
+                    lng: parseFloat(match[2])
+                };
+            }
+            
+            // Format 2: https://www.google.com/maps/@lat,lng,zoom
+            match = trimmed.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+            if (match) {
+                return {
+                    lat: parseFloat(match[1]),
+                    lng: parseFloat(match[2])
+                };
+            }
+            
+            // Format 3: https://goo.gl/maps/ or https://maps.app.goo.gl/
+            // These are shortened URLs that would need to be expanded
+            if (trimmed.includes('goo.gl/maps') || trimmed.includes('maps.app.goo.gl')) {
+                // Try to extract coordinates if they're visible in the URL
+                match = trimmed.match(/(-?\d+\.?\d*)[,!](-?\d+\.?\d*)/);
+                if (match) {
+                    return {
+                        lat: parseFloat(match[1]),
+                        lng: parseFloat(match[2])
+                    };
+                }
+            }
+            
+            return null;
+        }
+
+        // Update coordinates display
+        document.getElementById('mapLink').addEventListener('input', function(e) {
+            const coords = parseLocation(e.target.value);
+            const display = document.getElementById('coordDisplay');
+            if (coords) {
+                document.getElementById('latDisplay').textContent = coords.lat.toFixed(6);
+                document.getElementById('lngDisplay').textContent = coords.lng.toFixed(6);
+                display.style.display = 'block';
+            } else {
+                display.style.display = 'none';
+            }
+        });
+
+        // Show alert
+        function showAlert(message, type) {
+            const alertEl = document.getElementById(type + 'Alert');
+            alertEl.textContent = message;
+            alertEl.classList.add('show');
+            setTimeout(() => {
+                alertEl.classList.remove('show');
+            }, 5000);
+        }
+
+        // Add marker form submission
+        document.getElementById('addMarkerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const mapLink = document.getElementById('mapLink').value;
+            const motherName = document.getElementById('motherName').value;
+            const firstName = document.getElementById('firstName').value;
+            const motherPhone = document.getElementById('motherPhone').value;
+            const fatherPhone = document.getElementById('fatherPhone').value;
+            const personPhone = document.getElementById('personPhone').value;
+            const markerColor = document.getElementById('markerColor').value;
+            
+            // Validate at least one phone number
+            if (!motherPhone && !fatherPhone && !personPhone) {
+                showAlert('Please enter at least one phone number', 'error');
+                return;
+            }
+            
+            // Parse coordinates
+            const coords = parseLocation(mapLink);
+            if (!coords) {
+                showAlert('Invalid Google Maps link or coordinates. Please check the format.', 'error');
+                return;
+            }
+            
+            try {
+                // Add to Firebase
+                await db.collection('markers').add({
+                    lat: coords.lat,
+                    lng: coords.lng,
+                    motherName: motherName,
+                    firstName: firstName,
+                    motherPhone: motherPhone,
+                    fatherPhone: fatherPhone,
+                    personPhone: personPhone,
+                    color: markerColor,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                showAlert('Marker added successfully!', 'success');
+                document.getElementById('addMarkerForm').reset();
+                document.getElementById('coordDisplay').style.display = 'none';
+            } catch (error) {
+                console.error('Error adding marker:', error);
+                showAlert('Error adding marker. Please try again.', 'error');
+            }
+        });
+
+        // Load and display markers
+        function loadMarkers() {
+            const markersList = document.getElementById('markersList');
+            
+            db.collection('markers').orderBy('createdAt', 'desc').get()
+                .then((querySnapshot) => {
+                    if (querySnapshot.empty) {
+                        markersList.innerHTML = '<div class="no-markers">No markers added yet.</div>';
+                        return;
+                    }
+                    
+                    markersList.innerHTML = '';
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const markerItem = document.createElement('div');
+                        markerItem.className = 'marker-item';
+                        
+                        const phones = [];
+                        if (data.motherPhone) phones.push(`Mother: ${data.motherPhone}`);
+                        if (data.fatherPhone) phones.push(`Father: ${data.fatherPhone}`);
+                        if (data.personPhone) phones.push(`Person: ${data.personPhone}`);
+                        
+                        markerItem.innerHTML = `
+                            <div style="display: flex; align-items: center; flex: 1;">
+                                <div class="marker-color" style="background-color: ${data.color}"></div>
+                                <div class="marker-info">
+                                    <h4>${data.motherName} (${data.firstName})</h4>
+                                    <p>Location: ${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}</p>
+                                    <p>${phones.join(' | ')}</p>
+                                </div>
+                            </div>
+                            <button class="btn btn-danger" onclick="deleteMarker('${doc.id}')">Delete</button>
+                        `;
+                        
+                        markersList.appendChild(markerItem);
+                    });
+                })
+                .catch((error) => {
+                    console.error('Error loading markers:', error);
+                    markersList.innerHTML = '<div class="no-markers">Error loading markers.</div>';
+                });
+        }
+
+        // Delete marker
+        function deleteMarker(id) {
+            if (confirm('Are you sure you want to delete this marker?')) {
+                db.collection('markers').doc(id).delete()
+                    .then(() => {
+                        showAlert('Marker deleted successfully!', 'success');
+                        loadMarkers();
+                    })
+                    .catch((error) => {
+                        console.error('Error deleting marker:', error);
+                        showAlert('Error deleting marker. Please try again.', 'error');
+                    });
+            }
+        }
+    </script>
+</body>
+</html>

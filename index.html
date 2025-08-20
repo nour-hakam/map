@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Tracker Map</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+
+        .info-window {
+            padding: 10px;
+            min-width: 200px;
+        }
+
+        .info-window h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 18px;
+            border-bottom: 2px solid #4285f4;
+            padding-bottom: 5px;
+        }
+
+        .info-window p {
+            margin: 5px 0;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .info-window strong {
+            color: #333;
+            display: inline-block;
+            width: 80px;
+        }
+
+        .phone-number {
+            color: #4285f4;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .phone-number:hover {
+            text-decoration: underline;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1000;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .loading.hidden {
+            display: none;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4285f4;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .admin-link {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #4285f4;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 100;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .admin-link:hover {
+            background: #357ae8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Loading map data...</p>
+    </div>
+    
+    <div id="map"></div>
+    
+    <!-- Admin panel link (you can remove this in production) -->
+    <a href="admin.html" class="admin-link">Admin Panel</a>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // IMPORTANT: Replace with your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAsltkrj6N-L1IEaJEbdHDWYEC_F6HJSrE",
+            authDomain: "map-b012a.firebaseapp.com",
+            projectId: "map-b012a",
+            storageBucket: "map-b012a.firebasestorage.app",
+            messagingSenderId: "955802242108",
+            appId: "1:955802242108:web:44ee5523ee737094440739",
+            measurementId: "G-XN0RBYP3Q7"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let map;
+        let markers = [];
+        let infoWindow;
+
+        function initMap() {
+            // Initialize map centered on a default location
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 10,
+                center: { lat: 33.8938, lng: 35.5018 }, // Default: Beirut
+                mapTypeControl: true,
+                streetViewControl: false,
+                fullscreenControl: true,
+                zoomControl: true
+            });
+
+            infoWindow = new google.maps.InfoWindow();
+
+            // Load markers from Firebase
+            loadMarkers();
+        }
+
+        function loadMarkers() {
+            db.collection('markers').onSnapshot((snapshot) => {
+                // Clear existing markers
+                markers.forEach(marker => marker.setMap(null));
+                markers = [];
+
+                let bounds = new google.maps.LatLngBounds();
+                let hasMarkers = false;
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const position = { lat: data.lat, lng: data.lng };
+                    
+                    // Create custom marker with specified color
+                    const marker = new google.maps.Marker({
+                        position: position,
+                        map: map,
+                        title: data.firstName,
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            fillColor: data.color || '#FF0000',
+                            fillOpacity: 0.9,
+                            strokeColor: '#FFFFFF',
+                            strokeWeight: 2,
+                            scale: 8
+                        }
+                    });
+
+                    // Create label for first name
+                    const label = new google.maps.Marker({
+                        position: position,
+                        map: map,
+                        label: {
+                            text: data.firstName,
+                            color: '#333333',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                        },
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            fillOpacity: 0,
+                            strokeOpacity: 0,
+                            scale: 0
+                        }
+                    });
+
+                    // Add click listener to show info window
+                    marker.addListener('click', () => {
+                        const phoneNumbers = [];
+                        if (data.motherPhone) phoneNumbers.push(`<p><strong>Mother:</strong> <a href="tel:${data.motherPhone}" class="phone-number">${data.motherPhone}</a></p>`);
+                        if (data.fatherPhone) phoneNumbers.push(`<p><strong>Father:</strong> <a href="tel:${data.fatherPhone}" class="phone-number">${data.fatherPhone}</a></p>`);
+                        if (data.personPhone) phoneNumbers.push(`<p><strong>Person:</strong> <a href="tel:${data.personPhone}" class="phone-number">${data.personPhone}</a></p>`);
+
+                        const content = `
+                            <div class="info-window">
+                                <h3>${data.motherName || 'Location Details'}</h3>
+                                ${phoneNumbers.join('')}
+                                <p><strong>Added:</strong> ${data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString() : 'Unknown'}</p>
+                            </div>
+                        `;
+                        
+                        infoWindow.setContent(content);
+                        infoWindow.open(map, marker);
+                    });
+
+                    markers.push(marker);
+                    markers.push(label);
+                    bounds.extend(position);
+                    hasMarkers = true;
+                });
+
+                // Adjust map view to show all markers
+                if (hasMarkers) {
+                    map.fitBounds(bounds);
+                    // Prevent excessive zoom
+                    const listener = google.maps.event.addListener(map, "idle", function() { 
+                        if (map.getZoom() > 16) map.setZoom(16); 
+                        google.maps.event.removeListener(listener); 
+                    });
+                }
+
+                // Hide loading indicator
+                document.getElementById('loading').classList.add('hidden');
+            }, (error) => {
+                console.error("Error loading markers:", error);
+                document.getElementById('loading').innerHTML = '<p style="color: red;">Error loading map data. Please refresh the page.</p>';
+            });
+        }
+    </script>
+
+    <!-- IMPORTANT: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual API key -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXtPIX97azfHXWr8I8fNStWe4ZhqoJDrI&callback=initMap"></script>
+</body>
+</html>
