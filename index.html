@@ -1,125 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Location Tracker Map</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; }
+        #map { height: 100vh; width: 100%; }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f0f2f5;
-        }
-
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
-
-        .info-window {
-            padding: 10px;
-            min-width: 200px;
-        }
-
+        .info-window { padding: 10px; min-width: 200px; }
         .info-window h3 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 18px;
-            border-bottom: 2px solid #4285f4;
-            padding-bottom: 5px;
+            color: #333; margin-bottom: 10px; font-size: 18px;
+            border-bottom: 2px solid #4285f4; padding-bottom: 5px;
         }
-
-        .info-window p {
-            margin: 5px 0;
-            color: #666;
-            font-size: 14px;
-        }
-
-        .info-window strong {
-            color: #333;
-            display: inline-block;
-            width: 80px;
-        }
-
-        .phone-number {
-            color: #4285f4;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .phone-number:hover {
-            text-decoration: underline;
-        }
+        .info-window p { margin: 5px 0; color: #666; font-size: 14px; }
+        .info-window strong { color: #333; display: inline-block; width: 80px; }
+        .phone-number { color: #4285f4; text-decoration: none; font-weight: 500; }
+        .phone-number:hover { text-decoration: underline; }
 
         .loading {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            z-index: 1000;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; z-index: 1000; background: white; padding: 30px;
+            border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-
-        .loading.hidden {
-            display: none;
-        }
-
+        .loading.hidden { display: none; }
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #4285f4;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
+            border: 4px solid #f3f3f3; border-top: 4px solid #4285f4; border-radius: 50%;
+            width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px;
         }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         .admin-link {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #4285f4;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            text-decoration: none;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 100;
-            font-size: 14px;
+            position: fixed; bottom: 20px; right: 20px; background: #4285f4; color: white;
+            padding: 10px 20px; border-radius: 25px; text-decoration: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100; font-size: 14px;
             transition: all 0.3s ease;
         }
+        .admin-link:hover { background: #357ae8; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
 
-        .admin-link:hover {
-            background: #357ae8;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        }
+        .parent-info { margin-top: 5px; padding-top: 5px; border-top: 1px solid #eee; }
+        .parent-name { color: #555; font-size: 13px; font-style: italic; }
 
-        .parent-info {
-            margin-top: 5px;
-            padding-top: 5px;
-            border-top: 1px solid #eee;
+        /* My Location button */
+        .locate-link {
+            position: fixed; bottom: 20px; left: 20px; background: #34a853; color: white;
+            padding: 10px 20px; border-radius: 25px; text-decoration: none; border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100; font-size: 14px;
+            transition: all 0.3s ease; cursor: pointer;
         }
-
-        .parent-name {
-            color: #555;
-            font-size: 13px;
-            font-style: italic;
-        }
+        .locate-link:hover { background: #2d9447; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body>
@@ -127,18 +57,21 @@
         <div class="spinner"></div>
         <p>Loading map data...</p>
     </div>
-    
+
     <div id="map"></div>
-    
+
     <!-- Admin panel link -->
     <a href="admin.html" class="admin-link">Admin Panel</a>
+
+    <!-- My location button -->
+    <button id="locateBtn" class="locate-link">📍 My Location</button>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 
     <script>
-        // Firebase configuration
+        // Firebase configuration (from your project)
         const firebaseConfig = {
             apiKey: "AIzaSyAsltkrj6N-L1IEaJEbdHDWYEC_F6HJSrE",
             authDomain: "map-b012a.firebaseapp.com",
@@ -157,11 +90,17 @@
         let markers = [];
         let infoWindow;
 
+        // NEW: user location tracking state
+        let userMarker = null;
+        let accuracyCircle = null;
+        let watchId = null;
+        let firstCenterDone = false;
+
         function initMap() {
-            // Initialize map centered on a default location
+            // Initialize map centered on Beirut by default
             map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 10,
-                center: { lat: 33.8938, lng: 35.5018 }, // Default: Beirut
+                center: { lat: 33.8938, lng: 35.5018 },
                 mapTypeControl: true,
                 streetViewControl: false,
                 fullscreenControl: true,
@@ -170,14 +109,21 @@
 
             infoWindow = new google.maps.InfoWindow();
 
-            // Load markers from Firebase
+            // Start loading Firestore markers
             loadMarkers();
+
+            // Ask for location and start tracking (works on HTTPS or localhost)
+            if (navigator.geolocation) {
+                startTrackingMyLocation();
+            } else {
+                console.warn('Geolocation not supported by this browser.');
+            }
         }
 
         function loadMarkers() {
             db.collection('markers').onSnapshot((snapshot) => {
                 // Clear existing markers
-                markers.forEach(marker => marker.setMap(null));
+                markers.forEach(m => m.setMap(null));
                 markers = [];
 
                 let bounds = new google.maps.LatLngBounds();
@@ -186,11 +132,11 @@
                 snapshot.forEach((doc) => {
                     const data = doc.data();
                     const position = { lat: data.lat, lng: data.lng };
-                    
-                    // Create custom marker with specified color
+
+                    // Marker with color
                     const marker = new google.maps.Marker({
-                        position: position,
-                        map: map,
+                        position,
+                        map,
                         title: data.displayName || data.fullName,
                         icon: {
                             path: google.maps.SymbolPath.CIRCLE,
@@ -202,10 +148,10 @@
                         }
                     });
 
-                    // Create label for display name
+                    // "Label" marker (text only)
                     const label = new google.maps.Marker({
-                        position: position,
-                        map: map,
+                        position,
+                        map,
                         label: {
                             text: data.displayName || data.fullName,
                             color: '#333333',
@@ -220,7 +166,7 @@
                         }
                     });
 
-                    // Add click listener to show info window
+                    // Info window content
                     marker.addListener('click', () => {
                         const phoneNumbers = [];
                         if (data.motherPhone) phoneNumbers.push(`<p><strong>Mother:</strong> <a href="tel:${data.motherPhone}" class="phone-number">${data.motherPhone}</a></p>`);
@@ -243,7 +189,6 @@
                                 <p><strong>Added:</strong> ${data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString() : 'Unknown'}</p>
                             </div>
                         `;
-                        
                         infoWindow.setContent(content);
                         infoWindow.open(map, marker);
                     });
@@ -254,13 +199,12 @@
                     hasMarkers = true;
                 });
 
-                // Adjust map view to show all markers
+                // Fit to markers (limit max zoom)
                 if (hasMarkers) {
                     map.fitBounds(bounds);
-                    // Prevent excessive zoom
-                    const listener = google.maps.event.addListener(map, "idle", function() { 
-                        if (map.getZoom() > 16) map.setZoom(16); 
-                        google.maps.event.removeListener(listener); 
+                    const listener = google.maps.event.addListener(map, "idle", function () {
+                        if (map.getZoom() > 16) map.setZoom(16);
+                        google.maps.event.removeListener(listener);
                     });
                 }
 
@@ -271,6 +215,84 @@
                 document.getElementById('loading').innerHTML = '<p style="color: red;">Error loading map data. Please refresh the page.</p>';
             });
         }
+
+        // === NEW: Live location tracking ===
+        function startTrackingMyLocation() {
+            if (!navigator.geolocation) return;
+            if (watchId !== null) return; // already tracking
+
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const { latitude, longitude, accuracy } = pos.coords;
+                    const latLng = { lat: latitude, lng: longitude };
+
+                    if (!userMarker) {
+                        // Blue dot for user
+                        userMarker = new google.maps.Marker({
+                            position: latLng,
+                            map,
+                            title: 'You are here',
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                scale: 8,
+                                fillColor: '#1a73e8',
+                                fillOpacity: 1,
+                                strokeColor: '#ffffff',
+                                strokeWeight: 2
+                            },
+                            zIndex: 9999
+                        });
+
+                        // Accuracy circle
+                        accuracyCircle = new google.maps.Circle({
+                            strokeColor: '#1a73e8',
+                            strokeOpacity: 0.2,
+                            strokeWeight: 1,
+                            fillColor: '#1a73e8',
+                            fillOpacity: 0.1,
+                            map,
+                            center: latLng,
+                            radius: accuracy || 0
+                        });
+                    } else {
+                        userMarker.setPosition(latLng);
+                        if (accuracyCircle) {
+                            accuracyCircle.setCenter(latLng);
+                            accuracyCircle.setRadius(accuracy || 0);
+                        }
+                    }
+
+                    // Center on first fix
+                    if (!firstCenterDone) {
+                        map.panTo(latLng);
+                        map.setZoom(Math.max(map.getZoom(), 14));
+                        firstCenterDone = true;
+                    }
+                },
+                (err) => {
+                    console.warn('Geolocation error:', err);
+                    // Optional: UX message here if needed
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+            );
+        }
+
+        function stopTrackingMyLocation() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+        }
+
+        // Recenter to user when clicking the button
+        document.getElementById('locateBtn').addEventListener('click', () => {
+            if (!navigator.geolocation) return;
+            startTrackingMyLocation();
+            if (userMarker) {
+                map.panTo(userMarker.getPosition());
+                map.setZoom(Math.max(map.getZoom(), 14));
+            }
+        });
     </script>
 
     <!-- Google Maps API -->
