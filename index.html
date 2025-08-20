@@ -108,18 +108,6 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
-
-        .parent-info {
-            margin-top: 5px;
-            padding-top: 5px;
-            border-top: 1px solid #eee;
-        }
-
-        .parent-name {
-            color: #555;
-            font-size: 13px;
-            font-style: italic;
-        }
     </style>
 </head>
 <body>
@@ -130,7 +118,7 @@
     
     <div id="map"></div>
     
-    <!-- Admin panel link -->
+    <!-- Admin panel link (you can remove this in production) -->
     <a href="admin.html" class="admin-link">Admin Panel</a>
 
     <!-- Firebase SDKs -->
@@ -138,7 +126,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 
     <script>
-        // Firebase configuration
+        // IMPORTANT: Replace with your Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAsltkrj6N-L1IEaJEbdHDWYEC_F6HJSrE",
             authDomain: "map-b012a.firebaseapp.com",
@@ -191,7 +179,7 @@
                     const marker = new google.maps.Marker({
                         position: position,
                         map: map,
-                        title: data.displayName || data.fullName,
+                        title: data.firstName,
                         icon: {
                             path: google.maps.SymbolPath.CIRCLE,
                             fillColor: data.color || '#FF0000',
@@ -202,12 +190,12 @@
                         }
                     });
 
-                    // Create label for display name
+                    // Create label for first name
                     const label = new google.maps.Marker({
                         position: position,
                         map: map,
                         label: {
-                            text: data.displayName || data.fullName,
+                            text: data.firstName,
                             color: '#333333',
                             fontSize: '12px',
                             fontWeight: 'bold'
@@ -227,19 +215,10 @@
                         if (data.fatherPhone) phoneNumbers.push(`<p><strong>Father:</strong> <a href="tel:${data.fatherPhone}" class="phone-number">${data.fatherPhone}</a></p>`);
                         if (data.personPhone) phoneNumbers.push(`<p><strong>Person:</strong> <a href="tel:${data.personPhone}" class="phone-number">${data.personPhone}</a></p>`);
 
-                        let parentInfo = '';
-                        if (data.motherName || data.fatherName) {
-                            parentInfo = '<div class="parent-info">';
-                            if (data.motherName) parentInfo += `<p class="parent-name">Mother: ${data.motherName}</p>`;
-                            if (data.fatherName) parentInfo += `<p class="parent-name">Father: ${data.fatherName}</p>`;
-                            parentInfo += '</div>';
-                        }
-
                         const content = `
                             <div class="info-window">
-                                <h3>${data.fullName}</h3>
+                                <h3>${data.motherName || 'Location Details'}</h3>
                                 ${phoneNumbers.join('')}
-                                ${parentInfo}
                                 <p><strong>Added:</strong> ${data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString() : 'Unknown'}</p>
                             </div>
                         `;
@@ -273,7 +252,7 @@
         }
     </script>
 
-    <!-- Google Maps API -->
+    <!-- IMPORTANT: Replace YOUR_GOOGLE_MAPS_API_KEY with your actual API key -->
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXtPIX97azfHXWr8I8fNStWe4ZhqoJDrI&callback=initMap"></script>
 </body>
 </html>
