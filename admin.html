@@ -629,63 +629,90 @@
         }
 
         // Enhanced parse location function
-        function parseLocation(input) {
-            const trimmed = input.trim();
-            
-            // Extract coordinates from the input format: "34.368728, 35.840779 https://maps.app.goo.gl/..."
-            // First, try to find coordinates at the beginning
-            let match = trimmed.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/);
-            if (match) {
-                return {
-                    lat: parseFloat(match[1]),
-                    lng: parseFloat(match[2])
-                };
-            }
-            
-            // Try to parse as coordinates only (lat, lng)
-            const coordPattern = /(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/;
-            const coordMatch = trimmed.match(coordPattern);
-            if (coordMatch) {
-                return {
-                    lat: parseFloat(coordMatch[1]),
-                    lng: parseFloat(coordMatch[2])
-                };
-            }
-            
-            // Try to parse Google Maps URLs
-            // Format 1: https://maps.google.com/?q=lat,lng
-            match = trimmed.match(/[?&]q=(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/);
-            if (match) {
-                return {
-                    lat: parseFloat(match[1]),
-                    lng: parseFloat(match[2])
-                };
-            }
-            
-            // Format 2: https://www.google.com/maps/@lat,lng,zoom
-            match = trimmed.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-            if (match) {
-                return {
-                    lat: parseFloat(match[1]),
-                    lng: parseFloat(match[2])
-                };
-            }
-            
-            // Format 3: maps.app.goo.gl - these usually need the coordinates separately
-            // But try to extract if coordinates are in the URL
-            if (trimmed.includes('maps.app.goo.gl') || trimmed.includes('goo.gl/maps')) {
-                // Look for coordinates anywhere in the string
-                const coordSearch = trimmed.match(/(-?\d+\.\d{4,})[,\s]+(-?\d+\.\d{4,})/);
-                if (coordSearch) {
-                    return {
-                        lat: parseFloat(coordSearch[1]),
-                        lng: parseFloat(coordSearch[2])
-                    };
-                }
-            }
-            
-            return null;
-        }
+        // --- Drop-in replacement: handles raw coords + long Google Maps URLs ---
+function parseLocation(input) {
+  const s = input.trim();
+
+  const inRange = (lat, lng) =>
+    Number.isFinite(lat) && Number.isFinite(lng) &&
+    lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
+  // 1) start-of-string "lat, lng"
+  let m = s.match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if (m) {
+    const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+    return inRange(lat, lng) ? { lat, lng } : null;
+  }
+
+  // 2) q= or ll= (supports URL-encoded comma)
+  m = s.match(/[?&](?:q|ll)=(-?\d+(?:\.\d+)?)(?:%2C|,|\s)+(-?\d+(?:\.\d+)?)/i);
+  if (m) {
+    const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+    return inRange(lat, lng) ? { lat, lng } : null;
+  }
+
+  // 3) @lat,lng
+  m = s.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  if (m) {
+    const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+    return inRange(lat, lng) ? { lat, lng } : null;
+  }
+
+  // 4) data tokens: !3dLAT!4dLNG
+  m = s.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+  if (m) {
+    const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+    return inRange(lat, lng) ? { lat, lng } : null;
+  }
+
+  // 5) data tokens (reversed): !2dLNG!3dLAT
+  m = s.match(/!2d(-?\d+(?:\.\d+)?)!3d(-?\d+(?:\.\d+)?)/);
+  if (m) {
+    const lng = parseFloat(m[1]), lat = parseFloat(m[2]);
+    return inRange(lat, lng) ? { lat, lng } : null;
+  }
+
+  // 6) anywhere "lat, lng"
+  m = s.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if (m) {
+    const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+    return inRange(lat, lng) ? { lat, lng } : null;
+  }
+
+  return null;
+}
+
+// --- Optional async wrapper: expand short links, then parse ---
+async function parseLocationMaybeShortLink(input, { expandShortLink } = {}) {
+  const s = input.trim();
+  const isShort = /(^(https?:\/\/)?)(maps\.app\.goo\.gl|goo\.gl\/maps)\//i.test(s);
+  if (!isShort) return parseLocation(s);
+
+  // Requires a server-side expander because of CORS in browsers.
+  if (!expandShortLink) {
+    // Provide a clear failure instead of silently returning null
+    throw new Error('maps.app.goo.gl is a short link; expand it server-side, then pass the expanded URL to parseLocation().');
+  }
+  const expanded = await expandShortLink(s);
+  return parseLocation(expanded);
+}
+
+// Example Node/backend expander (works in Node 18+)
+async function expandMapsShortLink(url, maxHops = 5) {
+  let current = url;
+  for (let i = 0; i < maxHops; i++) {
+    const resp = await fetch(current, { method: 'GET', redirect: 'manual' });
+    const loc = resp.headers.get('location');
+    if (!loc) return current;                  // reached final
+    current = new URL(loc, current).toString(); // resolve relative
+    if (/google\.(?:com|[a-z.]+)\/maps/i.test(current)) break; // got long URL
+  }
+  return current;
+}
+
+// Usage (server or via your API):
+// const coords = await parseLocationMaybeShortLink(url, { expandShortLink: expandMapsShortLink });
+
 
         // Update coordinates display
         document.getElementById('mapLink').addEventListener('input', function(e) {
