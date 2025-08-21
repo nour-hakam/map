@@ -65,6 +65,89 @@
         }
         .locate-link:hover { background: #2d9447; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
 
+        /* Clear directions button */
+        .clear-directions {
+            position: fixed; bottom: 70px; left: 20px; background: #ea4335; color: white;
+            padding: 10px 20px; border-radius: 25px; border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100; font-size: 14px;
+            transition: all 0.3s ease; cursor: pointer; display: none;
+        }
+        .clear-directions:hover { background: #d33b2c; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .clear-directions.visible { display: block; }
+
+        /* Directions panel */
+        .directions-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            padding: 15px;
+            max-width: 350px;
+            max-height: 70vh;
+            overflow-y: auto;
+            z-index: 101;
+            display: none;
+        }
+        .directions-panel.visible { display: block; }
+        .directions-panel h3 {
+            color: #1a73e8;
+            margin-bottom: 10px;
+            font-size: 16px;
+            border-bottom: 2px solid #4285f4;
+            padding-bottom: 5px;
+        }
+        .directions-info {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .directions-info .distance {
+            font-size: 18px;
+            font-weight: bold;
+            color: #34a853;
+        }
+        .directions-info .duration {
+            font-size: 16px;
+            color: #666;
+        }
+        .direction-steps {
+            list-style: none;
+            padding: 0;
+        }
+        .direction-steps li {
+            padding: 8px;
+            border-left: 3px solid #4285f4;
+            margin-left: 10px;
+            margin-bottom: 5px;
+            background: #f8f9fa;
+            font-size: 13px;
+        }
+
+        /* Direction button in info window */
+        .direction-btn {
+            background: #34a853;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        .direction-btn:hover {
+            background: #2d9447;
+            transform: translateY(-1px);
+        }
+        .direction-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         /* Custom label styling for multiple names */
         .custom-map-label {
             background: white;
@@ -89,6 +172,16 @@
             margin-left: 4px;
             font-weight: normal;
         }
+
+        .close-panel {
+            float: right;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #666;
+        }
+        .close-panel:hover { color: #333; }
     </style>
 </head>
 <body>
@@ -99,11 +192,25 @@
 
     <div id="map"></div>
 
+    <!-- Directions Panel -->
+    <div class="directions-panel" id="directionsPanel">
+        <button class="close-panel" onclick="clearDirections()">✕</button>
+        <h3>📍 Directions</h3>
+        <div class="directions-info">
+            <div class="distance" id="routeDistance">Calculating...</div>
+            <div class="duration" id="routeDuration">Calculating...</div>
+        </div>
+        <ul class="direction-steps" id="directionSteps"></ul>
+    </div>
+
     <!-- Admin panel link -->
     <a href="admin.html" class="admin-link">Admin Panel</a>
 
     <!-- My location button -->
     <button id="locateBtn" class="locate-link">📍 My Location</button>
+    
+    <!-- Clear directions button -->
+    <button id="clearDirectionsBtn" class="clear-directions" onclick="clearDirections()">❌ Clear Route</button>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
@@ -135,6 +242,12 @@
         let accuracyCircle = null;
         let watchId = null;
         let firstCenterDone = false;
+        let userLocation = null; // Store user's current location
+
+        // Directions
+        let directionsService;
+        let directionsRenderer;
+        let currentRoute = null;
 
         function initMap() {
             // Initialize map centered on Beirut by default
@@ -148,6 +261,18 @@
             });
 
             infoWindow = new google.maps.InfoWindow();
+            
+            // Initialize directions service and renderer
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({
+                map: map,
+                suppressMarkers: false,
+                polylineOptions: {
+                    strokeColor: '#4285f4',
+                    strokeWeight: 5,
+                    strokeOpacity: 0.8
+                }
+            });
 
             // Start loading Firestore markers
             loadMarkers();
@@ -195,7 +320,7 @@
                     // Get the first person's color or default
                     const markerColor = group.people[0].color || '#FF0000';
                     
-                    // Create main marker with bigger size (scale: 12 instead of 8)
+                    // Create main marker with bigger size and larger clickable area
                     const marker = new google.maps.Marker({
                         position,
                         map,
@@ -205,9 +330,12 @@
                             fillColor: markerColor,
                             fillOpacity: 0.9,
                             strokeColor: '#FFFFFF',
-                            strokeWeight: 2,
-                            scale: 12  // Bigger circle
-                        }
+                            strokeWeight: 3,
+                            scale: 15,  // Even bigger circle for easier clicking
+                            anchor: new google.maps.Point(0, 0)
+                        },
+                        cursor: 'pointer',
+                        optimized: false  // Better click detection
                     });
 
                     // Create custom label with stacked names
@@ -219,7 +347,7 @@
                         labelText = group.people.map(p => p.displayName || p.fullName).join('\n');
                     }
 
-                    // Create label marker
+                    // Create label marker (not clickable - just for display)
                     const label = new google.maps.Marker({
                         position,
                         map,
@@ -234,16 +362,25 @@
                             fillOpacity: 0,
                             strokeOpacity: 0,
                             scale: 0
-                        }
+                        },
+                        clickable: false  // Make label not clickable
                     });
 
                     // Info window shows all people at this location
-                    marker.addListener('click', () => {
+                    marker.addListener('click', (e) => {
+                        // Stop event propagation to prevent label interference
+                        if (e && e.stop) e.stop();
+                        
                         let content = '<div class="info-window">';
                         
                         if (group.people.length > 1) {
                             content += `<h3>📍 ${group.people.length} People at this location</h3>`;
                         }
+                        
+                        // Add directions button at the top
+                        content += `<button class="direction-btn" onclick="getDirections(${position.lat}, ${position.lng}, '${group.people[0].displayName || group.people[0].fullName}')" ${!userLocation ? 'disabled' : ''}>
+                            🗺️ Get Directions ${!userLocation ? '(Enable location first)' : ''}
+                        </button>`;
                         
                         group.people.forEach((person, index) => {
                             content += '<div class="person-section">';
@@ -280,7 +417,7 @@
                 });
 
                 // Fit to markers
-                if (hasMarkers) {
+                if (hasMarkers && !currentRoute) { // Don't auto-fit if showing directions
                     map.fitBounds(bounds);
                     const listener = google.maps.event.addListener(map, "idle", function () {
                         if (map.getZoom() > 16) map.setZoom(16);
@@ -296,6 +433,75 @@
             });
         }
 
+        // Get directions from user location to destination
+        function getDirections(destLat, destLng, destinationName) {
+            if (!userLocation) {
+                alert('Please enable location services to get directions.');
+                return;
+            }
+
+            const origin = new google.maps.LatLng(userLocation.lat, userLocation.lng);
+            const destination = new google.maps.LatLng(destLat, destLng);
+
+            const request = {
+                origin: origin,
+                destination: destination,
+                travelMode: google.maps.TravelMode.DRIVING,
+                unitSystem: google.maps.UnitSystem.METRIC,
+                avoidHighways: false,
+                avoidTolls: false
+            };
+
+            directionsService.route(request, (result, status) => {
+                if (status === 'OK') {
+                    currentRoute = result;
+                    directionsRenderer.setDirections(result);
+                    
+                    // Show directions panel
+                    showDirectionsPanel(result, destinationName);
+                    
+                    // Show clear button
+                    document.getElementById('clearDirectionsBtn').classList.add('visible');
+                    
+                    // Close info window
+                    infoWindow.close();
+                } else {
+                    alert('Could not get directions: ' + status);
+                }
+            });
+        }
+
+        // Show directions panel with route info
+        function showDirectionsPanel(result, destinationName) {
+            const route = result.routes[0];
+            const leg = route.legs[0];
+            
+            document.getElementById('routeDistance').textContent = leg.distance.text;
+            document.getElementById('routeDuration').textContent = leg.duration.text;
+            
+            // Show steps
+            const stepsList = document.getElementById('directionSteps');
+            stepsList.innerHTML = '';
+            
+            leg.steps.forEach((step, index) => {
+                const li = document.createElement('li');
+                // Remove HTML tags from instructions
+                const instruction = step.instructions.replace(/<[^>]*>/g, '');
+                li.innerHTML = `<strong>Step ${index + 1}:</strong> ${instruction} (${step.distance.text})`;
+                stepsList.appendChild(li);
+            });
+            
+            document.getElementById('directionsPanel').classList.add('visible');
+        }
+
+        // Clear directions
+        function clearDirections() {
+            currentRoute = null;
+            directionsRenderer.setDirections({routes: []});
+            document.getElementById('directionsPanel').classList.remove('visible');
+            document.getElementById('clearDirectionsBtn').classList.remove('visible');
+        }
+
         // Live location tracking
         function startTrackingMyLocation() {
             if (!navigator.geolocation) return;
@@ -305,6 +511,9 @@
                 (pos) => {
                     const { latitude, longitude, accuracy } = pos.coords;
                     const latLng = { lat: latitude, lng: longitude };
+                    
+                    // Update stored user location
+                    userLocation = latLng;
 
                     if (!userMarker) {
                         // Blue dot for user with bigger size
@@ -343,7 +552,7 @@
                     }
 
                     // Center on first fix
-                    if (!firstCenterDone) {
+                    if (!firstCenterDone && !currentRoute) {
                         map.panTo(latLng);
                         map.setZoom(Math.max(map.getZoom(), 14));
                         firstCenterDone = true;
