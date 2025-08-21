@@ -351,11 +351,10 @@
             <p id="routeDistance">Distance: Calculating...</p>
             <p id="routeDuration">Duration: Calculating...</p>
             <p id="routeStops">Stops: Calculating...</p>
+            <button class="route-btn open-gmaps" onclick="openRouteInGoogleMaps()" style="background: #34a853; color: white; margin-top: 10px; width: 100%;">
+                📱 Open Route in Google Maps
+            </button>
         </div>
-        
-        <button class="route-btn open-gmaps" id="openInGoogleMaps" onclick="openRouteInGoogleMaps()">
-            📱 Open Route in Google Maps
-        </button>
     </div>
 
     <!-- Directions Panel -->
@@ -780,9 +779,6 @@
                     document.getElementById('routeStops').textContent = `Stops: ${selectedWaypoints.length} locations + final destination`;
                     document.getElementById('routeInfo').style.display = 'block';
                     
-                    // Show "Open in Google Maps" button
-                    document.getElementById('openInGoogleMaps').classList.add('visible');
-                    
                     // Show optimized order
                     if (result.routes[0].waypoint_order) {
                         console.log('Optimized order:', result.routes[0].waypoint_order);
@@ -809,33 +805,47 @@
                 return;
             }
             
-            // Build Google Maps URL with waypoints in optimized order
-            let mapsUrl = 'https://www.google.com/maps/dir/';
+            // Build simple Google Maps URL
+            let baseUrl = 'https://www.google.com/maps/dir/';
             
-            // Add starting point (current location)
-            mapsUrl += `${userLocation.lat},${userLocation.lng}/`;
+            // Add starting point (current location - use "Current+Location" for mobile)
+            baseUrl += 'Current+Location/';
             
             // Add waypoints in optimized order
             if (optimizedWaypointOrder && optimizedWaypointOrder.length > 0) {
                 optimizedWaypointOrder.forEach(index => {
                     const waypoint = originalWaypoints[index];
-                    mapsUrl += `${waypoint.lat},${waypoint.lng}/`;
+                    baseUrl += `${waypoint.lat},${waypoint.lng}/`;
                 });
             } else {
                 // If no optimization, use original order
                 originalWaypoints.forEach(waypoint => {
-                    mapsUrl += `${waypoint.lat},${waypoint.lng}/`;
+                    baseUrl += `${waypoint.lat},${waypoint.lng}/`;
                 });
             }
             
             // Add final destination
-            mapsUrl += `${FINAL_DESTINATION.lat},${FINAL_DESTINATION.lng}`;
+            baseUrl += `${FINAL_DESTINATION.lat},${FINAL_DESTINATION.lng}`;
             
-            // Add travel mode
-            mapsUrl += '/@/data=!4m2!4m1!3e0'; // 3e0 for driving mode
+            // Open URL (will trigger Google Maps app on mobile)
+            window.open(baseUrl, '_blank');
             
-            // Open in new window/tab (will open app on mobile)
-            window.open(mapsUrl, '_blank');
+            // Alternative for mobile devices - try to open directly in app
+            if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                // For mobile, also try the app-specific URL scheme
+                const appUrl = baseUrl.replace('https://www.google.com/maps', 'comgooglemaps://');
+                
+                // Create a hidden iframe to try opening the app
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = appUrl;
+                document.body.appendChild(iframe);
+                
+                // Remove iframe after attempt
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+                }, 1000);
+            }
         }
 
         // Show optimized directions
@@ -944,7 +954,7 @@
             document.getElementById('directionsPanel').classList.remove('visible');
             document.getElementById('clearDirectionsBtn').classList.remove('visible');
             document.getElementById('routePanel').classList.remove('visible');
-            document.getElementById('openInGoogleMaps').classList.remove('visible');
+            document.getElementById('routeInfo').style.display = 'none';
             selectedWaypoints = [];
             optimizedWaypointOrder = [];
             originalWaypoints = [];
