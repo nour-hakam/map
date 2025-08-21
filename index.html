@@ -9,7 +9,7 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; }
         #map { height: 100vh; width: 100%; }
 
-        .info-window { padding: 10px; min-width: 200px; }
+        .info-window { padding: 10px; min-width: 250px; max-width: 400px; }
         .info-window h3 {
             color: #333; margin-bottom: 10px; font-size: 18px;
             border-bottom: 2px solid #4285f4; padding-bottom: 5px;
@@ -18,6 +18,20 @@
         .info-window strong { color: #333; display: inline-block; width: 80px; }
         .phone-number { color: #4285f4; text-decoration: none; font-weight: 500; }
         .phone-number:hover { text-decoration: underline; }
+
+        .person-section {
+            background: #f8f9fa;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 3px solid #4285f4;
+        }
+        .person-section:first-child { margin-top: 0; }
+        .person-section h4 {
+            color: #1a73e8;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
 
         .loading {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -50,6 +64,31 @@
             transition: all 0.3s ease; cursor: pointer;
         }
         .locate-link:hover { background: #2d9447; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+
+        /* Custom label styling for multiple names */
+        .custom-map-label {
+            background: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            white-space: pre-line;
+            line-height: 1.3;
+            text-align: center;
+        }
+
+        .location-count {
+            background: #ea4335;
+            color: white;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
@@ -61,7 +100,7 @@
     <div id="map"></div>
 
     <!-- Admin panel link -->
-    <a href="admin.html" class="admin-link">Admin Panel</a>
+    <a href="admin-panel-x7k9.html" class="admin-link">Admin Panel</a>
 
     <!-- My location button -->
     <button id="locateBtn" class="locate-link">📍 My Location</button>
@@ -71,7 +110,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 
     <script>
-        // Firebase configuration (from your project)
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAsltkrj6N-L1IEaJEbdHDWYEC_F6HJSrE",
             authDomain: "map-b012a.firebaseapp.com",
@@ -89,8 +128,9 @@
         let map;
         let markers = [];
         let infoWindow;
+        let locationGroups = {}; // Group markers by location
 
-        // NEW: user location tracking state
+        // User location tracking state
         let userMarker = null;
         let accuracyCircle = null;
         let watchId = null;
@@ -112,11 +152,9 @@
             // Start loading Firestore markers
             loadMarkers();
 
-            // Ask for location and start tracking (works on HTTPS or localhost)
+            // Ask for location and start tracking
             if (navigator.geolocation) {
                 startTrackingMyLocation();
-            } else {
-                console.warn('Geolocation not supported by this browser.');
             }
         }
 
@@ -125,35 +163,68 @@
                 // Clear existing markers
                 markers.forEach(m => m.setMap(null));
                 markers = [];
+                locationGroups = {};
+
+                // Group markers by location
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const locationKey = `${data.lat.toFixed(6)},${data.lng.toFixed(6)}`;
+                    
+                    if (!locationGroups[locationKey]) {
+                        locationGroups[locationKey] = {
+                            lat: data.lat,
+                            lng: data.lng,
+                            people: []
+                        };
+                    }
+                    
+                    locationGroups[locationKey].people.push({
+                        id: doc.id,
+                        ...data
+                    });
+                });
 
                 let bounds = new google.maps.LatLngBounds();
                 let hasMarkers = false;
 
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const position = { lat: data.lat, lng: data.lng };
-
-                    // Marker with color
+                // Create markers for each location group
+                Object.keys(locationGroups).forEach(locationKey => {
+                    const group = locationGroups[locationKey];
+                    const position = { lat: group.lat, lng: group.lng };
+                    
+                    // Get the first person's color or default
+                    const markerColor = group.people[0].color || '#FF0000';
+                    
+                    // Create main marker with bigger size (scale: 12 instead of 8)
                     const marker = new google.maps.Marker({
                         position,
                         map,
-                        title: data.displayName || data.fullName,
+                        title: group.people.map(p => p.displayName || p.fullName).join('\n'),
                         icon: {
                             path: google.maps.SymbolPath.CIRCLE,
-                            fillColor: data.color || '#FF0000',
+                            fillColor: markerColor,
                             fillOpacity: 0.9,
                             strokeColor: '#FFFFFF',
                             strokeWeight: 2,
-                            scale: 8
+                            scale: 12  // Bigger circle
                         }
                     });
 
-                    // "Label" marker (text only)
+                    // Create custom label with stacked names
+                    let labelText = '';
+                    if (group.people.length === 1) {
+                        labelText = group.people[0].displayName || group.people[0].fullName;
+                    } else {
+                        // Stack names vertically for multiple people
+                        labelText = group.people.map(p => p.displayName || p.fullName).join('\n');
+                    }
+
+                    // Create label marker
                     const label = new google.maps.Marker({
                         position,
                         map,
                         label: {
-                            text: data.displayName || data.fullName,
+                            text: labelText,
                             color: '#333333',
                             fontSize: '12px',
                             fontWeight: 'bold'
@@ -166,29 +237,38 @@
                         }
                     });
 
-                    // Info window content
+                    // Info window shows all people at this location
                     marker.addListener('click', () => {
-                        const phoneNumbers = [];
-                        if (data.motherPhone) phoneNumbers.push(`<p><strong>Mother:</strong> <a href="tel:${data.motherPhone}" class="phone-number">${data.motherPhone}</a></p>`);
-                        if (data.fatherPhone) phoneNumbers.push(`<p><strong>Father:</strong> <a href="tel:${data.fatherPhone}" class="phone-number">${data.fatherPhone}</a></p>`);
-                        if (data.personPhone) phoneNumbers.push(`<p><strong>Person:</strong> <a href="tel:${data.personPhone}" class="phone-number">${data.personPhone}</a></p>`);
-
-                        let parentInfo = '';
-                        if (data.motherName || data.fatherName) {
-                            parentInfo = '<div class="parent-info">';
-                            if (data.motherName) parentInfo += `<p class="parent-name">Mother: ${data.motherName}</p>`;
-                            if (data.fatherName) parentInfo += `<p class="parent-name">Father: ${data.fatherName}</p>`;
-                            parentInfo += '</div>';
+                        let content = '<div class="info-window">';
+                        
+                        if (group.people.length > 1) {
+                            content += `<h3>📍 ${group.people.length} People at this location</h3>`;
                         }
-
-                        const content = `
-                            <div class="info-window">
-                                <h3>${data.fullName}</h3>
-                                ${phoneNumbers.join('')}
-                                ${parentInfo}
-                                <p><strong>Added:</strong> ${data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString() : 'Unknown'}</p>
-                            </div>
-                        `;
+                        
+                        group.people.forEach((person, index) => {
+                            content += '<div class="person-section">';
+                            content += `<h4>${person.fullName}</h4>`;
+                            
+                            const phoneNumbers = [];
+                            if (person.motherPhone) phoneNumbers.push(`<p><strong>Mother:</strong> <a href="tel:${person.motherPhone}" class="phone-number">${person.motherPhone}</a></p>`);
+                            if (person.fatherPhone) phoneNumbers.push(`<p><strong>Father:</strong> <a href="tel:${person.fatherPhone}" class="phone-number">${person.fatherPhone}</a></p>`);
+                            if (person.personPhone) phoneNumbers.push(`<p><strong>Person:</strong> <a href="tel:${person.personPhone}" class="phone-number">${person.personPhone}</a></p>`);
+                            
+                            content += phoneNumbers.join('');
+                            
+                            if (person.motherName || person.fatherName) {
+                                content += '<div class="parent-info">';
+                                if (person.motherName) content += `<p class="parent-name">Mother: ${person.motherName}</p>`;
+                                if (person.fatherName) content += `<p class="parent-name">Father: ${person.fatherName}</p>`;
+                                content += '</div>';
+                            }
+                            
+                            content += `<p style="font-size: 12px; color: #999;">Added: ${person.createdAt ? new Date(person.createdAt.toDate()).toLocaleDateString() : 'Unknown'}</p>`;
+                            content += '</div>';
+                        });
+                        
+                        content += '</div>';
+                        
                         infoWindow.setContent(content);
                         infoWindow.open(map, marker);
                     });
@@ -199,7 +279,7 @@
                     hasMarkers = true;
                 });
 
-                // Fit to markers (limit max zoom)
+                // Fit to markers
                 if (hasMarkers) {
                     map.fitBounds(bounds);
                     const listener = google.maps.event.addListener(map, "idle", function () {
@@ -216,7 +296,7 @@
             });
         }
 
-        // === NEW: Live location tracking ===
+        // Live location tracking
         function startTrackingMyLocation() {
             if (!navigator.geolocation) return;
             if (watchId !== null) return; // already tracking
@@ -227,14 +307,14 @@
                     const latLng = { lat: latitude, lng: longitude };
 
                     if (!userMarker) {
-                        // Blue dot for user
+                        // Blue dot for user with bigger size
                         userMarker = new google.maps.Marker({
                             position: latLng,
                             map,
                             title: 'You are here',
                             icon: {
                                 path: google.maps.SymbolPath.CIRCLE,
-                                scale: 8,
+                                scale: 10,  // Slightly bigger for user location
                                 fillColor: '#1a73e8',
                                 fillOpacity: 1,
                                 strokeColor: '#ffffff',
@@ -271,7 +351,6 @@
                 },
                 (err) => {
                     console.warn('Geolocation error:', err);
-                    // Optional: UX message here if needed
                 },
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
             );
