@@ -353,7 +353,7 @@
             <p id="routeStops">Stops: Calculating...</p>
         </div>
         
-        <button class="route-btn" id="openGoogleMapsBtn" onclick="openRouteInGoogleMaps()" style="background: #34a853; color: white; margin-top: 10px; width: 100%; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 500; display: none;">
+        <button onclick="openRouteInGoogleMaps()" style="background: #34a853; color: white; margin-top: 10px; width: 100%; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; display: none;" id="googleMapsButton">
             📱 Open Route in Google Maps
         </button>
     </div>
@@ -780,8 +780,14 @@
                     document.getElementById('routeStops').textContent = `Stops: ${selectedWaypoints.length} locations + final destination`;
                     document.getElementById('routeInfo').style.display = 'block';
                     
-                    // Show the Google Maps button
-                    document.getElementById('openGoogleMapsBtn').style.display = 'block';
+                    // Show the Google Maps button - make sure it's visible
+                    const gmapsBtn = document.getElementById('googleMapsButton');
+                    if (gmapsBtn) {
+                        gmapsBtn.style.display = 'block';
+                        console.log('Google Maps button should be visible now');
+                    } else {
+                        console.error('Google Maps button not found!');
+                    }
                     
                     // Show optimized order
                     if (result.routes[0].waypoint_order) {
@@ -802,54 +808,40 @@
             });
         }
 
-        // Open route in Google Maps app
+        // Open route in Google Maps app - simplified version
         function openRouteInGoogleMaps() {
-            if (!userLocation || !originalWaypoints || originalWaypoints.length === 0) {
+            console.log('Opening route in Google Maps...');
+            
+            if (!originalWaypoints || originalWaypoints.length === 0) {
                 alert('Please calculate a route first');
                 return;
             }
             
             // Build simple Google Maps URL
-            let baseUrl = 'https://www.google.com/maps/dir/';
+            let url = 'https://www.google.com/maps/dir/';
             
-            // Add starting point (current location - use "Current+Location" for mobile)
-            baseUrl += 'Current+Location/';
+            // Start from current location
+            url += 'Current+Location/';
             
             // Add waypoints in optimized order
             if (optimizedWaypointOrder && optimizedWaypointOrder.length > 0) {
                 optimizedWaypointOrder.forEach(index => {
-                    const waypoint = originalWaypoints[index];
-                    baseUrl += `${waypoint.lat},${waypoint.lng}/`;
+                    const wp = originalWaypoints[index];
+                    url += `${wp.lat},${wp.lng}/`;
                 });
             } else {
-                // If no optimization, use original order
-                originalWaypoints.forEach(waypoint => {
-                    baseUrl += `${waypoint.lat},${waypoint.lng}/`;
+                originalWaypoints.forEach(wp => {
+                    url += `${wp.lat},${wp.lng}/`;
                 });
             }
             
             // Add final destination
-            baseUrl += `${FINAL_DESTINATION.lat},${FINAL_DESTINATION.lng}`;
+            url += `${FINAL_DESTINATION.lat},${FINAL_DESTINATION.lng}`;
             
-            // Open URL (will trigger Google Maps app on mobile)
-            window.open(baseUrl, '_blank');
+            console.log('Opening URL:', url);
             
-            // Alternative for mobile devices - try to open directly in app
-            if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                // For mobile, also try the app-specific URL scheme
-                const appUrl = baseUrl.replace('https://www.google.com/maps', 'comgooglemaps://');
-                
-                // Create a hidden iframe to try opening the app
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = appUrl;
-                document.body.appendChild(iframe);
-                
-                // Remove iframe after attempt
-                setTimeout(() => {
-                    document.body.removeChild(iframe);
-                }, 1000);
-            }
+            // Open in new tab/window
+            window.open(url, '_blank');
         }
 
         // Show optimized directions
@@ -959,7 +951,8 @@
             document.getElementById('clearDirectionsBtn').classList.remove('visible');
             document.getElementById('routePanel').classList.remove('visible');
             document.getElementById('routeInfo').style.display = 'none';
-            document.getElementById('openGoogleMapsBtn').style.display = 'none';
+            const gmapsBtn = document.getElementById('googleMapsButton');
+            if (gmapsBtn) gmapsBtn.style.display = 'none';
             selectedWaypoints = [];
             optimizedWaypointOrder = [];
             originalWaypoints = [];
