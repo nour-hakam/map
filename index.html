@@ -351,10 +351,11 @@
             <p id="routeDistance">Distance: Calculating...</p>
             <p id="routeDuration">Duration: Calculating...</p>
             <p id="routeStops">Stops: Calculating...</p>
-            <button class="route-btn open-gmaps" onclick="openRouteInGoogleMaps()" style="background: #34a853; color: white; margin-top: 10px; width: 100%;">
-                📱 Open Route in Google Maps
-            </button>
         </div>
+        
+        <button class="route-btn" id="openGoogleMapsBtn" onclick="openRouteInGoogleMaps()" style="background: #34a853; color: white; margin-top: 10px; width: 100%; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 500; display: none;">
+            📱 Open Route in Google Maps
+        </button>
     </div>
 
     <!-- Directions Panel -->
@@ -779,6 +780,9 @@
                     document.getElementById('routeStops').textContent = `Stops: ${selectedWaypoints.length} locations + final destination`;
                     document.getElementById('routeInfo').style.display = 'block';
                     
+                    // Show the Google Maps button
+                    document.getElementById('openGoogleMapsBtn').style.display = 'block';
+                    
                     // Show optimized order
                     if (result.routes[0].waypoint_order) {
                         console.log('Optimized order:', result.routes[0].waypoint_order);
@@ -955,6 +959,7 @@
             document.getElementById('clearDirectionsBtn').classList.remove('visible');
             document.getElementById('routePanel').classList.remove('visible');
             document.getElementById('routeInfo').style.display = 'none';
+            document.getElementById('openGoogleMapsBtn').style.display = 'none';
             selectedWaypoints = [];
             optimizedWaypointOrder = [];
             originalWaypoints = [];
