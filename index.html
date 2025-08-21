@@ -50,6 +50,30 @@
             transition: all 0.3s ease; cursor: pointer;
         }
         .locate-link:hover { background: #2d9447; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+
+          .group-marker{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;              /* أكبر من الدائرة الأصلية */
+      height: 56px;
+      border-radius: 50%;
+      background: #4285f4;      /* يتبدّل حسب أول لون بالمجموعة */
+      color: #fff;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      padding: 6px;
+      text-align: center;
+      user-select: none;
+      font-weight: 600;
+  }
+  .group-marker .names{
+      font-size: 11px;
+      line-height: 1.1;
+      white-space: normal;      /* لنسمح بأسطر متعددة */
+      word-break: break-word;
+  }
+
     </style>
 </head>
 <body>
@@ -121,100 +145,103 @@
         }
 
         function loadMarkers() {
-            db.collection('markers').onSnapshot((snapshot) => {
-                // Clear existing markers
-                markers.forEach(m => m.setMap(null));
-                markers = [];
+  const unsubscribe = db.collection('markers').onSnapshot((snapshot) => {
+    // شيل العلامات القديمة
+    markers.forEach(m => {
+      if (m.setMap) m.setMap(null);   // للـ Marker العادي
+      else m.map = null;              // للـ AdvancedMarkerElement
+    });
+    markers = [];
 
-                let bounds = new google.maps.LatLngBounds();
-                let hasMarkers = false;
+    let bounds = new google.maps.LatLngBounds();
+    let hasMarkers = false;
 
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const position = { lat: data.lat, lng: data.lng };
+    // 1) جمّع حسب الإحداثيات
+    const groups = new Map();
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (typeof data.lat !== 'number' || typeof data.lng !== 'number') return;
 
-                    // Marker with color
-                    const marker = new google.maps.Marker({
-                        position,
-                        map,
-                        title: data.displayName || data.fullName,
-                        icon: {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            fillColor: data.color || '#FF0000',
-                            fillOpacity: 0.9,
-                            strokeColor: '#FFFFFF',
-                            strokeWeight: 2,
-                            scale: 8
-                        }
-                    });
+      const key = `${Number(data.lat).toFixed(6)},${Number(data.lng).toFixed(6)}`;
+      if (!groups.has(key)) {
+        groups.set(key, { position: { lat: data.lat, lng: data.lng }, people: [] });
+      }
+      groups.get(key).people.push({ id: doc.id, ...data });
+    });
 
-                    // "Label" marker (text only)
-                    const label = new google.maps.Marker({
-                        position,
-                        map,
-                        label: {
-                            text: data.displayName || data.fullName,
-                            color: '#333333',
-                            fontSize: '12px',
-                            fontWeight: 'bold'
-                        },
-                        icon: {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            fillOpacity: 0,
-                            strokeOpacity: 0,
-                            scale: 0
-                        }
-                    });
+    // 2) أنشئ Advanced Marker لكل مجموعة
+    groups.forEach((group) => {
+      const pos = group.position;
+      const names = group.people.map(p => p.displayName || p.fullName || 'بدون اسم');
 
-                    // Info window content
-                    marker.addListener('click', () => {
-                        const phoneNumbers = [];
-                        if (data.motherPhone) phoneNumbers.push(`<p><strong>Mother:</strong> <a href="tel:${data.motherPhone}" class="phone-number">${data.motherPhone}</a></p>`);
-                        if (data.fatherPhone) phoneNumbers.push(`<p><strong>Father:</strong> <a href="tel:${data.fatherPhone}" class="phone-number">${data.fatherPhone}</a></p>`);
-                        if (data.personPhone) phoneNumbers.push(`<p><strong>Person:</strong> <a href="tel:${data.personPhone}" class="phone-number">${data.personPhone}</a></p>`);
+      // عنصر HTML للدائرة + الأسماء تحت بعض
+      const el = document.createElement('div');
+      el.className = 'group-marker';
+      el.style.background = group.people[0]?.color || '#4285f4';
+      el.innerHTML = `<div class="names">${names.join('<br>')}</div>`;
 
-                        let parentInfo = '';
-                        if (data.motherName || data.fatherName) {
-                            parentInfo = '<div class="parent-info">';
-                            if (data.motherName) parentInfo += `<p class="parent-name">Mother: ${data.motherName}</p>`;
-                            if (data.fatherName) parentInfo += `<p class="parent-name">Father: ${data.fatherName}</p>`;
-                            parentInfo += '</div>';
-                        }
+      // Advanced Marker (يدعم HTML)
+      const advMarker = new google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: pos,
+        content: el
+      });
 
-                        const content = `
-                            <div class="info-window">
-                                <h3>${data.fullName}</h3>
-                                ${phoneNumbers.join('')}
-                                ${parentInfo}
-                                <p><strong>Added:</strong> ${data.createdAt ? new Date(data.createdAt.toDate()).toLocaleDateString() : 'Unknown'}</p>
-                            </div>
-                        `;
-                        infoWindow.setContent(content);
-                        infoWindow.open(map, marker);
-                    });
+      // نافذة معلومات: تفاصيل جميع الأشخاص بنفس الموقع
+      advMarker.addListener('gmp-click', () => {
+        const peopleHtml = group.people.map((p) => {
+          const phoneRows = [];
+          if (p.motherPhone) phoneRows.push(`<p><strong>Mother:</strong> <a href="tel:${p.motherPhone}" class="phone-number">${p.motherPhone}</a></p>`);
+          if (p.fatherPhone) phoneRows.push(`<p><strong>Father:</strong> <a href="tel:${p.fatherPhone}" class="phone-number">${p.fatherPhone}</a></p>`);
+          if (p.personPhone) phoneRows.push(`<p><strong>Person:</strong> <a href="tel:${p.personPhone}" class="phone-number">${p.personPhone}</a></p>`);
 
-                    markers.push(marker);
-                    markers.push(label);
-                    bounds.extend(position);
-                    hasMarkers = true;
-                });
+          let parentInfo = '';
+          if (p.motherName || p.fatherName) {
+            parentInfo = '<div class="parent-info">';
+            if (p.motherName) parentInfo += `<p class="parent-name">Mother: ${p.motherName}</p>`;
+            if (p.fatherName) parentInfo += `<p class="parent-name">Father: ${p.fatherName}</p>`;
+            parentInfo += '</div>';
+          }
 
-                // Fit to markers (limit max zoom)
-                if (hasMarkers) {
-                    map.fitBounds(bounds);
-                    const listener = google.maps.event.addListener(map, "idle", function () {
-                        if (map.getZoom() > 16) map.setZoom(16);
-                        google.maps.event.removeListener(listener);
-                    });
-                }
+          const created = p.createdAt?.toDate ? new Date(p.createdAt.toDate()) : null;
+          return `
+            <div style="margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:10px">
+              <h3 style="margin:0 0 6px 0">${p.fullName || p.displayName || 'بدون اسم'}</h3>
+              ${phoneRows.join('')}
+              ${parentInfo}
+              <p><strong>Added:</strong> ${created ? created.toLocaleDateString() : 'Unknown'}</p>
+            </div>
+          `;
+        }).join('');
 
-                // Hide loading indicator
-                document.getElementById('loading').classList.add('hidden');
-            }, (error) => {
-                console.error("Error loading markers:", error);
-                document.getElementById('loading').innerHTML = '<p style="color: red;">Error loading map data. Please refresh the page.</p>';
-            });
-        }
+        infoWindow.setContent(`<div class="info-window">${peopleHtml}</div>`);
+        infoWindow.setPosition(pos);
+        infoWindow.open({ map });
+      });
+
+      markers.push(advMarker);
+      bounds.extend(pos);
+      hasMarkers = true;
+    });
+
+    // 3) ضبّط الإطار على الكل + حد أقصى للزوم
+    if (hasMarkers) {
+      map.fitBounds(bounds);
+      const listener = google.maps.event.addListener(map, "idle", function () {
+        if (map.getZoom() > 16) map.setZoom(16);
+        google.maps.event.removeListener(listener);
+      });
+    }
+
+    // أخفي اللودينغ
+    document.getElementById('loading').classList.add('hidden');
+  }, (error) => {
+    console.error("Error loading markers:", error);
+    document.getElementById('loading').innerHTML = '<p style="color: red;">Error loading map data. Please refresh the page.</p>';
+  });
+
+  return unsubscribe;
+}
 
         // === NEW: Live location tracking ===
         function startTrackingMyLocation() {
@@ -296,6 +323,6 @@
     </script>
 
     <!-- Google Maps API -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXtPIX97azfHXWr8I8fNStWe4ZhqoJDrI&callback=initMap"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXtPIX97azfHXWr8I8fNStWe4ZhqoJDrI&libraries=marker&callback=initMap"></script>
 </body>
 </html>
